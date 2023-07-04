@@ -29,3 +29,11 @@ initial = BASE_DIR + '/options_files/initial.json'
 config = initial
 config["learning_rate"] = tune.choice([0.0001, 0.001]) # both bounds inclusive
 config["dropout"] = tune.choice([0.3, 0.2, 0.1])
+"""
+config["num_embedding_layers"] = tune.choice([4, 6, 8])
+config["num_encoder_layers"] = tune.choice([4, 8])
+config["num_branch_encoder_layers"] = tune.choice([4, 8])
+config["num_classification_layers"] = tune.choice([2, 4, 6, 8])
+config["num_attention_heads"] = tune.choice([4, 8])
+config["l2_penaly"] = [0.0005, 0.0001, 0.005, 0.001]
+"""

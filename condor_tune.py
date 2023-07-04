@@ -6,9 +6,13 @@ from ray.tune.suggest.hyperopt import HyperOptSearch
 
 import os, pathlib, json, time, pickle
 from typing import Dict, Any
+from tensorboard.backend.event_processing import event_accumulator
+import pandas as pd
 
 from misc import *
 from config import *
+from metrics import *
+import json
 
 ############################################################################################
 ## DIRECTORY SETUP
@@ -69,7 +73,6 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
         arguments = {TUNE_DIR}/train.sh $(Cluster) $(Process)
 
         request_gpus = 1
-        request_memory = 8192
 
         log = {THIS_TRIAL_DIR}/train.log
         output = {THIS_TRIAL_DIR}/train.out
@@ -134,64 +137,36 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
         raise Exception('Flows took too long to complete')
 
     ############################################################################################
-    ## SUBMIT METRICS JOB
-    ############################################################################################
-
-    metric_job = htcondor.Submit(
-    # This job reads the json files in THIS_TRIAL_DIR/flows/, and computes metrics
-        f"""
-        universe = docker
-        docker_image = yuliiamaidannyk/spanet:v12
-        should_transfer_files = YES
-        when_to_transfer_output = ON_EXIT
-        arguments = {TUNE_DIR}/metric.sh {THIS_TRIAL_DIR}
-
-        request_memory = 2048
-
-        log = {THIS_TRIAL_DIR}/metric.log
-        output = {THIS_TRIAL_DIR}/metric.out
-        error = {THIS_TRIAL_DIR}/metric.err
-
-        queue
-        """
-    # If successful, this job will write several files, including:
-    # THIS_TRIAL_DIR/results.pkl: results of the metric job, including all metrics
-    )
-    metric_result = schedd.submit(metric_job, count=1)
-    metric_jobid  = metric_result.cluster()
-
-    ############################################################################################
-    ## DETECT WHEN METRICS JOB IS DONE
-    ############################################################################################
-
-    # This uses the same logic as the training job above.
-    metric_start_time = time.time()
-    metric_timeout    = lambda : (time.time() - metric_start_time) > METRIC_TIMEOUT
-    while is_running(metric_jobid) and not metric_timeout():
-        time.sleep(TIME_BETWEEN_QUERIES)
-
-    if metric_timeout() and is_running(metric_jobid):
-        remove_job(metric_jobid)
-        raise Exception('Metric calculation took too long to complete')
-
-    file_start_time = time.time()
-    file_timeout    = lambda : (time.time() - file_start_time) > FILE_TIMEOUT
-    while not pathlib.Path(f'{THIS_TRIAL_DIR}/results.pkl').is_file() and not file_timeout():
-        time.sleep(TIME_BETWEEN_QUERIES)
-
-    if file_timeout(): raise Exception("Job ended but metric calculation failed to complete")
-
-    ############################################################################################
     ## REPORT RESULTS
     ############################################################################################
+    """
+    for x in os.listdir(THIS_TRIAL_DIR):
+        if x.startswith('events.out.'): # this is tensorboard logger file
+            tensor_logger = x
+    
+    ea = event_accumulator.EventAccumulator(tensor_logger)
+    ea.Reload()
 
-    result_dict = torch_unpickle(f'{THIS_TRIAL_DIR}/results.pkl')
-    tune.report( l1_loss=result_dict['l1_loss'],          # based on training
-                tot_viol=result_dict['tot_viol'],         # based on training
-        flow_convergence=result_dict['flow_convergence'], # based on flow jobs
-           flow_obj_diff=result_dict['flow_obj_diff'],    # based on flow jobs
-                weighted=result_dict['weighted'],         # based on training and flows
-                    time=result_dict['training_time'])    # based on training
+    # Save results of epoch with minimum validation loss
+    df = pd.DataFrame(ea.Scalars("validation_loss/validation_loss"))
+    idx = df["value"].idxmin()
+    result_dict = {"validation_loss/validation_loss": df["value"][idx]}
+
+    df = pd.DataFrame(ea.Scalars("validation_accuracy"))
+    result_dict["validation_accuracy"] = df["value"][idx]
+
+    # The step in validation loss does not directly correpond to training loss
+    # Find the closest step in value
+    step = df["step"][idx]
+    df = pd.DataFrame(ea.Scalars("loss/total_loss"))
+    closest_step = closest_step(df["step"], step)
+    result_dict["loss/total_loss"] = df["value"][df["step"] == closest_step].values[0]
+    """
+    result_dict = metrics(THIS_TRIAL_DIR)
+
+    tune.report(tot_loss=result_dict['loss/total_loss'],          
+                val_loss=result_dict['validation_loss/validation_loss'],  
+                val_acc=result_dict['validation_accuracy'])    
 
 ############################################################################################
 ## BEGIN TRIALS

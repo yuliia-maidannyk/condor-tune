@@ -1,5 +1,5 @@
-import ray      # pip install "ray[tune]"
-import htcondor # conda install -c conda-forge htcondor
+import ray      
+import htcondor 
 
 from ray import tune
 from ray.tune.suggest.hyperopt import HyperOptSearch
@@ -24,7 +24,7 @@ if move_current_trials_to_old: move_trials()
 ## DEFINE TRIAL FUNCTION
 ############################################################################################
 
-def run_trial(params: Dict[str, Any], checkpoint_dir=None) -> None:
+def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
     """Submit and wait for a condor job to finish, then report results"""
 
     ############################################################################################
@@ -35,10 +35,12 @@ def run_trial(params: Dict[str, Any], checkpoint_dir=None) -> None:
     params['hash'] = trial_hash
     THIS_TRIAL_DIR = f'{TRIAL_DIR}/{trial_hash}'
 
+    # There has to be a better way
     # tune automatically converts ints to floats, so we enforce types as needed here
-    params['modeltype']  = int(params['modeltype'])
-    params['batch_size'] = int(params['batch_size'])
-    params['epochs']     = int(params['epochs'])
+    #params['modeltype']  = int(params['modeltype'])
+    #params['batch_size'] = int(params['batch_size'])
+    #params['epochs']     = int(params['epochs'])
+    print(params, type(params['epochs']))
 
     pathlib.Path(THIS_TRIAL_DIR).mkdir(parents=True, exist_ok=True)
     with open(f'{THIS_TRIAL_DIR}/params.json', 'w') as f:
@@ -60,10 +62,11 @@ def run_trial(params: Dict[str, Any], checkpoint_dir=None) -> None:
     # Same syntax as the usual condor_submit file.
     # We use Python variables here to dynamically set command line arguments
         f"""
-        universe = vanilla
-        getenv = true
-        executable = /bin/bash
-        arguments = {TUNE_DIR}/train.sh $(Cluster) $(Process) {params['data_path']}
+        universe = docker
+        docker_image = yuliiamaidannyk/spanet:v12
+        should_transfer_files = YES
+        when_to_transfer_output = ON_EXIT
+        arguments = {TUNE_DIR}/train.sh $(Cluster) $(Process)
 
         request_gpus = 1
         request_memory = 8192
@@ -137,10 +140,12 @@ def run_trial(params: Dict[str, Any], checkpoint_dir=None) -> None:
     metric_job = htcondor.Submit(
     # This job reads the json files in THIS_TRIAL_DIR/flows/, and computes metrics
         f"""
-        universe = vanilla
-        getenv = true
-        executable = /bin/bash
+        universe = docker
+        docker_image = yuliiamaidannyk/spanet:v12
+        should_transfer_files = YES
+        when_to_transfer_output = ON_EXIT
         arguments = {TUNE_DIR}/metric.sh {THIS_TRIAL_DIR}
+
         request_memory = 2048
 
         log = {THIS_TRIAL_DIR}/metric.log
@@ -198,7 +203,7 @@ analysis = tune.run(run_trial, config=config, name=EXPERIMENT_NAME,
                                metric=METRIC, mode=METRIC_MODE),
                           num_samples=NUM_TRIALS,
                 raise_on_failed_trial=False,
-                  resources_per_trial={'cpu': RAY_NUM_CPUS/MAX_PARALLEL_TRAILS},)
+                  resources_per_trial={'cpu': RAY_NUM_CPUS/MAX_PARALLEL_TRIALS},)
 
 ############################################################################################
 ## SAVE RESULTS

@@ -1,6 +1,6 @@
 import pickle, hashlib, json
 from typing import Dict, Any
-from condor_tune import TUNE_DIR, TRIAL_DIR
+from config import *
 
 class Torch_CPU_Unpickler(pickle.Unpickler):
     # see https://github.com/pytorch/pytorch/issues/16797#issuecomment-633423219

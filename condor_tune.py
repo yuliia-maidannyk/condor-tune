@@ -4,7 +4,7 @@ import htcondor
 from ray import tune
 from ray.tune.suggest.hyperopt import HyperOptSearch
 
-import os, pathlib, json, time, pickle
+import os, shutil, pathlib, json, time, pickle
 from typing import Dict, Any
 from tensorboard.backend.event_processing import event_accumulator
 import pandas as pd
@@ -13,6 +13,14 @@ from misc import *
 from config import *
 from metrics import *
 import json
+
+def move_trials():
+    # move all contents of tune/trials/* to tune/old
+    for dir in os.listdir(TRIAL_DIR):
+        # NOTE: if dir already exists in old, we remove it and overwrite
+        if os.path.exists(f"{TUNE_DIR}/old/{dir}"):
+            shutil.rmtree(f"{TUNE_DIR}/old/{dir}")
+        shutil.move(f"{TRIAL_DIR}/{dir}", f"{TUNE_DIR}/old/{dir}")
 
 ############################################################################################
 ## DIRECTORY SETUP
@@ -38,14 +46,40 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
     trial_hash = dict_hash(params)
 
     # tune automatically converts ints to floats, so we enforce types as needed here
-    # if it's a string or a float already, don't convert
-    for key in params.keys():
-        if key in ["train_validation_split", "learning_rate", "l2_penalty", "dropout"]:  # floats
-            try:
-                params[key] = int(params[key])
-            except ValueError:
-                params[key] = params[key]
-    
+    params["hidden_dim"] = int(params["hidden_dim"])
+    params["transformer_dim"] = int(params["transformer_dim"])
+    params["initial_embedding_dim"] = int(params["initial_embedding_dim"])
+    params["position_embedding_dim"] = int(params["position_embedding_dim"])
+    params["num_embedding_layers"] = int(params["num_embedding_layers"])
+    params["num_encoder_layers"] = int(params["num_encoder_layers"])
+    params["num_branch_embedding_layers"] = int(params["num_branch_embedding_layers"])
+    params["num_branch_encoder_layers"] = int(params["num_branch_encoder_layers"])
+    params["num_jet_embedding_layers"] = int(params["num_jet_embedding_layers"])
+    params["num_jet_encoder_layers"] = int(params["num_jet_encoder_layers"])
+    params["num_detector_layers"] = int(params["num_detector_layers"])
+    params["num_regression_layers"] = int(params["num_regression_layers"])
+    params["num_classification_layers"] = int(params["num_classification_layers"])
+    params["split_symmetric_attention"] = int(params["split_symmetric_attention"])
+    params["num_attention_heads"] = int(params["num_attention_heads"])
+    params["skip_connections"] = int(params["skip_connections"])
+    params["initial_embedding_skip_connections"] = int(params["initial_embedding_skip_connections"])
+    params["linear_prelu_activation"] = int(params["linear_prelu_activation"])
+    params["normalize_features"] = int(params["normalize_features"])
+    params["limit_to_num_jets"] = int(params["limit_to_num_jets"])
+    params["balance_particles"] = int(params["balance_particles"])
+    params["balance_jets"] = int(params["balance_jets"])
+    params["balance_classifications"] = int(params["balance_classifications"])
+    params["partial_events"] = int(params["partial_events"])
+    params["dataset_randomization"] = int(params["dataset_randomization"])
+    params["batch_size"] = int(params["batch_size"])
+    params["num_dataloader_workers"] = int(params["num_dataloader_workers"])
+    params["mask_sequence_vectors"] = int(params["mask_sequence_vectors"])
+    params["learning_rate_cycles"] = int(params["learning_rate_cycles"])
+    params["balance_losses"] = int(params["balance_losses"])
+    params["epochs"] = int(params["epochs"])
+    params["num_gpu"] = int(params["num_gpu"])
+    params["verbose_output"] = int(params["verbose_output"])
+           
     params['hash'] = trial_hash
     THIS_TRIAL_DIR = f'{TRIAL_DIR}/{trial_hash}'
 

@@ -36,15 +36,18 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
     ############################################################################################
 
     trial_hash = dict_hash(params)
+
+    # tune automatically converts ints to floats, so we enforce types as needed here
+    # if it's a string or a float already, don't convert
+    for key in params.keys():
+        if key in ["train_validation_split", "learning_rate", "l2_penalty", "dropout"]:  # floats
+            try:
+                params[key] = int(params[key])
+            except ValueError:
+                params[key] = params[key]
+    
     params['hash'] = trial_hash
     THIS_TRIAL_DIR = f'{TRIAL_DIR}/{trial_hash}'
-
-    # There has to be a better way
-    # tune automatically converts ints to floats, so we enforce types as needed here
-    #params['modeltype']  = int(params['modeltype'])
-    #params['batch_size'] = int(params['batch_size'])
-    #params['epochs']     = int(params['epochs'])
-    print(params, type(params['epochs']))
 
     pathlib.Path(THIS_TRIAL_DIR).mkdir(parents=True, exist_ok=True)
     with open(f'{THIS_TRIAL_DIR}/params.json', 'w') as f:
@@ -139,29 +142,7 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
     ############################################################################################
     ## REPORT RESULTS
     ############################################################################################
-    """
-    for x in os.listdir(THIS_TRIAL_DIR):
-        if x.startswith('events.out.'): # this is tensorboard logger file
-            tensor_logger = x
-    
-    ea = event_accumulator.EventAccumulator(tensor_logger)
-    ea.Reload()
 
-    # Save results of epoch with minimum validation loss
-    df = pd.DataFrame(ea.Scalars("validation_loss/validation_loss"))
-    idx = df["value"].idxmin()
-    result_dict = {"validation_loss/validation_loss": df["value"][idx]}
-
-    df = pd.DataFrame(ea.Scalars("validation_accuracy"))
-    result_dict["validation_accuracy"] = df["value"][idx]
-
-    # The step in validation loss does not directly correpond to training loss
-    # Find the closest step in value
-    step = df["step"][idx]
-    df = pd.DataFrame(ea.Scalars("loss/total_loss"))
-    closest_step = closest_step(df["step"], step)
-    result_dict["loss/total_loss"] = df["value"][df["step"] == closest_step].values[0]
-    """
     result_dict = metrics(THIS_TRIAL_DIR)
 
     tune.report(tot_loss=result_dict['loss/total_loss'],          

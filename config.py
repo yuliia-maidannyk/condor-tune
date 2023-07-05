@@ -2,7 +2,7 @@ import datetime
 from ray import tune
 
 MAX_PARALLEL_TRIALS = 10
-NUM_TRIALS          = 1
+NUM_TRIALS          = 200
 
 METRIC_MODE, METRIC = "min", "weighted"
 EXPERIMENT_NAME     = f'tune_{METRIC}_model_batch_lr'
@@ -27,13 +27,11 @@ initial = BASE_DIR + '/options_files/initial.json'
 
 # Specify the hyperparameters, with tuning options
 config = initial
-config["learning_rate"] = tune.choice([0.0001, 0.001]) # both bounds inclusive
-config["dropout"] = tune.choice([0.3, 0.2, 0.1])
-"""
-config["num_embedding_layers"] = tune.choice([4, 6, 8])
-config["num_encoder_layers"] = tune.choice([4, 8])
-config["num_branch_encoder_layers"] = tune.choice([4, 8])
-config["num_classification_layers"] = tune.choice([2, 4, 6, 8])
-config["num_attention_heads"] = tune.choice([4, 8])
-config["l2_penaly"] = [0.0005, 0.0001, 0.005, 0.001]
-"""
+config["learning_rate"] = tune.loguniform(0.00001, 0.001) # both bounds inclusive
+config["dropout"] = tune.uniform(0.5, 0.01)
+config["num_embedding_layers"] = tune.choice([1, 2, 3, 4, 5, 6, 7, 8])
+config["num_encoder_layers"] = tune.choice([1, 2, 3, 4, 5, 6, 7, 8])
+config["num_branch_encoder_layers"] = tune.choice([1, 2, 3, 4, 5, 6])
+config["num_classification_layers"] = tune.choice([1, 2, 3, 4, 5, 6, 7, 8])
+config["num_attention_heads"] = tune.choice([2, 4, 8])
+config["l2_penaly"] = tune.loguniform(1e-4, 1e-2)

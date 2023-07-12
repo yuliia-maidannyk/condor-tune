@@ -1,6 +1,6 @@
 import pickle, hashlib, json
 from typing import Dict, Any
-from config import *
+from config import TUNE_DIR, TRIAL_DIR
 
 class Torch_CPU_Unpickler(pickle.Unpickler):
     # see https://github.com/pytorch/pytorch/issues/16797#issuecomment-633423219
@@ -35,7 +35,42 @@ def move_trials():
             shutil.rmtree(f"{TUNE_DIR}/old/{dir}")
         shutil.move(f"{TRIAL_DIR}/{dir}", f"{TUNE_DIR}/old/{dir}")
 
-
+def convert_to_int(params):
+    params["hidden_dim"] = int(params["hidden_dim"])
+    params["transformer_dim"] = int(params["transformer_dim"])
+    params["initial_embedding_dim"] = int(params["initial_embedding_dim"])
+    params["position_embedding_dim"] = int(params["position_embedding_dim"])
+    params["num_embedding_layers"] = int(params["num_embedding_layers"])
+    params["num_encoder_layers"] = int(params["num_encoder_layers"])
+    params["num_branch_embedding_layers"] = int(params["num_branch_embedding_layers"])
+    params["num_branch_encoder_layers"] = int(params["num_branch_encoder_layers"])
+    params["num_jet_embedding_layers"] = int(params["num_jet_embedding_layers"])
+    params["num_jet_encoder_layers"] = int(params["num_jet_encoder_layers"])
+    params["num_detector_layers"] = int(params["num_detector_layers"])
+    params["num_regression_layers"] = int(params["num_regression_layers"])
+    params["num_classification_layers"] = int(params["num_classification_layers"])
+    params["split_symmetric_attention"] = int(params["split_symmetric_attention"])
+    params["num_attention_heads"] = int(params["num_attention_heads"])
+    params["skip_connections"] = int(params["skip_connections"])
+    params["initial_embedding_skip_connections"] = int(params["initial_embedding_skip_connections"])
+    params["linear_prelu_activation"] = int(params["linear_prelu_activation"])
+    params["normalize_features"] = int(params["normalize_features"])
+    params["limit_to_num_jets"] = int(params["limit_to_num_jets"])
+    params["balance_particles"] = int(params["balance_particles"])
+    params["balance_jets"] = int(params["balance_jets"])
+    params["balance_classifications"] = int(params["balance_classifications"])
+    params["partial_events"] = int(params["partial_events"])
+    params["dataset_randomization"] = int(params["dataset_randomization"])
+    params["batch_size"] = int(params["batch_size"])
+    params["num_dataloader_workers"] = int(params["num_dataloader_workers"])
+    params["mask_sequence_vectors"] = int(params["mask_sequence_vectors"])
+    params["learning_rate_cycles"] = int(params["learning_rate_cycles"])
+    params["balance_losses"] = int(params["balance_losses"])
+    params["epochs"] = int(params["epochs"])
+    params["num_gpu"] = int(params["num_gpu"])
+    params["verbose_output"] = int(params["verbose_output"])
+    return params
+           
 ## resulting/expected folder structure:
 # condor-tune-project
 # ├── results                                         (directory for tuning results, created by user)

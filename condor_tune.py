@@ -44,44 +44,11 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
     ############################################################################################
 
     trial_hash = dict_hash(params)
-
-    # tune automatically converts ints to floats, so we enforce types as needed here
-    params["hidden_dim"] = int(params["hidden_dim"])
-    params["transformer_dim"] = int(params["transformer_dim"])
-    params["initial_embedding_dim"] = int(params["initial_embedding_dim"])
-    params["position_embedding_dim"] = int(params["position_embedding_dim"])
-    params["num_embedding_layers"] = int(params["num_embedding_layers"])
-    params["num_encoder_layers"] = int(params["num_encoder_layers"])
-    params["num_branch_embedding_layers"] = int(params["num_branch_embedding_layers"])
-    params["num_branch_encoder_layers"] = int(params["num_branch_encoder_layers"])
-    params["num_jet_embedding_layers"] = int(params["num_jet_embedding_layers"])
-    params["num_jet_encoder_layers"] = int(params["num_jet_encoder_layers"])
-    params["num_detector_layers"] = int(params["num_detector_layers"])
-    params["num_regression_layers"] = int(params["num_regression_layers"])
-    params["num_classification_layers"] = int(params["num_classification_layers"])
-    params["split_symmetric_attention"] = int(params["split_symmetric_attention"])
-    params["num_attention_heads"] = int(params["num_attention_heads"])
-    params["skip_connections"] = int(params["skip_connections"])
-    params["initial_embedding_skip_connections"] = int(params["initial_embedding_skip_connections"])
-    params["linear_prelu_activation"] = int(params["linear_prelu_activation"])
-    params["normalize_features"] = int(params["normalize_features"])
-    params["limit_to_num_jets"] = int(params["limit_to_num_jets"])
-    params["balance_particles"] = int(params["balance_particles"])
-    params["balance_jets"] = int(params["balance_jets"])
-    params["balance_classifications"] = int(params["balance_classifications"])
-    params["partial_events"] = int(params["partial_events"])
-    params["dataset_randomization"] = int(params["dataset_randomization"])
-    params["batch_size"] = int(params["batch_size"])
-    params["num_dataloader_workers"] = int(params["num_dataloader_workers"])
-    params["mask_sequence_vectors"] = int(params["mask_sequence_vectors"])
-    params["learning_rate_cycles"] = int(params["learning_rate_cycles"])
-    params["balance_losses"] = int(params["balance_losses"])
-    params["epochs"] = int(params["epochs"])
-    params["num_gpu"] = int(params["num_gpu"])
-    params["verbose_output"] = int(params["verbose_output"])
-           
     params['hash'] = trial_hash
     THIS_TRIAL_DIR = f'{TRIAL_DIR}/{trial_hash}'
+
+    # tune automatically converts ints to floats, so we enforce types as needed here
+    params = convert_to_int(params)
 
     pathlib.Path(THIS_TRIAL_DIR).mkdir(parents=True, exist_ok=True)
     with open(f'{THIS_TRIAL_DIR}/params.json', 'w') as f:
@@ -101,13 +68,12 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
 
     train_job = htcondor.Submit(
     # Same syntax as the usual condor_submit file.
-    # We use Python variables here to dynamically set command line arguments
         f"""
         universe = docker
-        docker_image = yuliiamaidannyk/spanet:v12
+        docker_image = yuliiamaidannyk/spanet:v14
         should_transfer_files = YES
         when_to_transfer_output = ON_EXIT
-        arguments = {TUNE_DIR}/train.sh $(Cluster) $(Process)
+        arguments = {TUNE_DIR}/train.sh $(Cluster) $(Process) {THIS_TRIAL_DIR} version_2
 
         request_gpus = 1
 
@@ -115,10 +81,13 @@ def run_trial(params: Dict[Any, Any], checkpoint_dir=None) -> None:
         output = {THIS_TRIAL_DIR}/train.out
         error = {THIS_TRIAL_DIR}/train.err
 
+        output_destination	= root://eosuser.cern.ch//eos/user/y/ymaidann/eth_project/Spanet_project/tune-eos
+        +JobFlavour	= "espresso"
+
         queue
         """
     # If successful, this job will write several files, including:
-    # THIS_TRIAL_DIR/training_done: prescence indicates that the training job is done
+    # THIS_TRIAL_DIR/training_done: presence indicates that the training job is done
     # THIS_TRIAL_DIR/run_flow.cmd: HTCondor Submit file for flow job array
     # THIS_TRIAL_DIR/flows/: a directory with one json file for each example in the validation set
     # THIS_TRIAL_DIR/training_results.pkl: results of the training job, including the trained model
